@@ -69,6 +69,6 @@ def predict(req: PredictRequest):
                 class_id=int(p),
                 probs={"not_fraud": float(pr[0]), "fraud": float(pr[1])},
             )
-            for p, pr in zip(preds, probs)
+            for p, pr in zip(preds, probs, strict=False)
         ]
     )
