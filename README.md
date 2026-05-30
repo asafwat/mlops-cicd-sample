@@ -2,7 +2,7 @@
 
 End-to-end **CI/CD for ML** demonstration using **GitHub Actions** + **GitHub Container Registry (ghcr.io)**. Trains a tiny fraud-detection model, packages it as a FastAPI service in Docker, and pushes versioned images on every merge to `main`. PRs are gated by a model **accuracy threshold** — drop below 90% accuracy and the merge is blocked.
 
-This is a **standalone exercise that lives in its own dedicated GitHub repo** (e.g. `asafwat/mlops-cicd-sample`). The model itself is intentionally minimal — it's the same sklearn pipeline as `kserve-model-serving`, just so the CI/CD pipeline has something real to operate on. The lesson is the pipeline, not the model.
+This is a **standalone exercise that lives in its own dedicated GitHub repo**. The model itself is intentionally minimal — it's a sklearn pipeline, just so the CI/CD pipeline has something real to operate on.
 
 ---
 
@@ -135,10 +135,6 @@ docker tag  ghcr.io/asafwat/mlops-cicd-sample:latest mlops-cicd-sample:latest
 kind load docker-image mlops-cicd-sample:latest --name mlops
 ```
 
-This is the bit the README is honest about — your Kind cluster doesn't pull from ghcr.io by default; it uses `kind load`. CI demonstrates the production pattern (image registry) while local dev keeps using kind-load.
-
-To eliminate that gap, see the [Production extension](#production-extensions) section below.
-
 ---
 
 ## Demoing the accuracy gate
@@ -159,7 +155,7 @@ Revert the change, push again, watch the check go green. Now the merge is unbloc
 
 ---
 
-## What this exercise demonstrates for a portfolio
+## What this exercise demonstrates
 
 | Skill | How |
 |---|---|
@@ -180,20 +176,12 @@ Revert the change, push again, watch the check go green. Now the merge is unbloc
 | **Trigger an Airflow DAG from CI** | On image push, call Airflow REST API to start a retraining/eval DAG that consumes the new image. Requires Airflow REST API auth + cluster-reachable endpoint. |
 | **Kind pulls from ghcr.io** | Replace `kind load` with native pulls. Configure Kind's containerd with ghcr.io credentials (via `--config` kind-config.yaml with `containerdConfigPatches`). |
 | **Model registry promotion** | Instead of (or alongside) ghcr.io, log the model to MLflow Model Registry; the accuracy gate promotes the version to the "Staging" stage. KServe pulls from the registry instead of the image. |
-| **GitOps deploy** | On image push, CI updates an image tag in a separate "deployment manifests" repo. ArgoCD detects the change and syncs the new image to the cluster. See [[project-future-gitops-argocd]] for the planned exercise. |
+| **GitOps deploy** | On image push, CI updates an image tag in a separate "deployment manifests" repo. ArgoCD detects the change and syncs the new image to the cluster. |
 | **Champion-vs-challenger comparison** | Instead of an absolute accuracy threshold, compare against the production model's accuracy on a fixed eval set. Block regressions, not absolute drops. |
 | **Data validation** | Add a step that validates the training data distribution before training (Great Expectations, custom checks). |
 | **Image vulnerability scanning** | `trivy` or `grype` as a release-workflow step; fail on critical CVEs. |
 
 ---
-
-## Related lab work
-
-- `mlflow-fraud-detection` — the lab's introduction to MLflow tracking; this exercise's training script could log to MLflow with one line added.
-- `kserve-model-serving` — what deploys the model in production; the image this CI builds could replace what KServe pulls.
-- `[[project-future-gitops-argocd]]` — the natural follow-on: CI builds + GitOps deploys.
-- `airflow-etl-pipelines/.github/workflows/ci.yml` — companion exercise: same CI pattern for the Airflow DAG repo.
-- `feast-feature-repo/.github/workflows/ci.yml` — companion exercise: same CI pattern for the Feast feature catalog.
 
 ## References
 
