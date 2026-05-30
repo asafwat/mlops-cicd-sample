@@ -1,0 +1,47 @@
+# Continuous Integration — runs on every PR + every push to main.
+#
+# What this catches BEFORE a bad commit reaches the release pipeline:
+#   - Python syntax / import errors
+#   - Lint violations (ruff)
+#   - Unit test failures
+#   - **Model accuracy regression** — tests/test_train.py asserts the model
+#     hits MIN_ACCURACY. If a code change drops accuracy below the threshold,
+#     the PR check fails and the model is NOT promoted.
+#
+# This is the simplest form of "model CI" — accuracy is the promotion gate.
+# A richer pipeline would compare against the previous run's accuracy and
+# require non-regression (champion/challenger), not just an absolute floor.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check src/ tests/
+
+      - name: Test (unit + integration, includes accuracy gate)
+        run: pytest tests/ -v

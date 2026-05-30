@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Trained artifact — regeneratable via `python -m src.train`. CI rebuilds it.
+model.joblib

@@ -1,0 +1,81 @@
+# Release workflow — runs ONLY on push to main (after PR merge).
+#
+# What it does:
+#   1. Trains a fresh model.joblib (so the image always ships the current code's model)
+#   2. Runs the full test suite (defense in depth — the accuracy gate runs again)
+#   3. Builds the Docker image
+#   4. Pushes to GitHub Container Registry (ghcr.io) with two tags:
+#        - the commit SHA (immutable, traceable)
+#        - `latest` (mutable, convenient)
+#
+# ghcr.io auth: GitHub Actions' built-in `GITHUB_TOKEN` has package write
+# permission when `permissions.packages: write` is set. No extra secrets needed.
+#
+# Pulling the image:
+#   docker pull ghcr.io/asafwat/mlops-cicd-sample:latest
+#   (Public images need no auth; private images need `docker login ghcr.io`.)
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Grant the built-in GITHUB_TOKEN permission to push to ghcr.io.
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Train model + run tests (accuracy gate)
+        run: |
+          python -m src.train
+          pytest tests/ -v
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/mlops-cicd-sample
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build + push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

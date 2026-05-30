@@ -1,0 +1,5 @@
+# CI / local dev deps. Includes runtime deps + testing stack.
+-r requirements.txt
+pytest==8.3.4
+httpx==0.27.2
+ruff==0.7.4
